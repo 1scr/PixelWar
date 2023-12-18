@@ -4,7 +4,7 @@ import io
 dotenv.load_dotenv()
 
 from deta import Deta
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageColor
 
 deta = Deta(os.getenv("DATAKEY"))
 games = deta.Base("games")
@@ -24,8 +24,8 @@ def placePixels(pixels: list | tuple = ()):
     slot = 40
 
     for pixel in pixels:
-        clr = tuple([ int(_) for _ in pixel["color"] ])
-        box = tuple([ int(_) for _ in pixel["place"] ])
+        clr = ImageColor.getrgb(pixel["color"])
+        box = tuple([ int(_) for _ in pixel["place"].split("-") ])
 
         if 1 <= box[0] <= 26 and 1 <= box[1] <= 26:
             draw.rectangle((((box[0]) * slot, (box[1]) * slot), ((box[0]) * slot + slot, box[1] * slot + slot)), fill=clr)
