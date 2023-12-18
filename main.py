@@ -1,6 +1,8 @@
+from datetime import datetime
 import dotenv
 import os
 import random
+import time
 
 from deta import Deta
 import discord
@@ -30,6 +32,11 @@ async def on_ready():
 	print("Ready !")
 	print("Connected as", bot.user)
 
+@bot.on_error
+async def on_error(event):
+	with open(f"logs/{datetime.now().year}_{datetime.now().month}_{datetime.now().day}/{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}.txt", "w") as file:
+		file.write(event)
+
 @matchmaking.command(name = "mode", description = "Changer le mode de jeu")
 @discord.default_permissions(manage_events = True)
 async def gamemode(ctx: discord.ApplicationContext, mode: int):
@@ -38,26 +45,26 @@ async def gamemode(ctx: discord.ApplicationContext, mode: int):
 		game.status = mode
 		game.save()
 
-		await ctx.send_response(embed = embed.matchMaking(( mode, )).gameModeSet())
+		await ctx.send_response(embed = embeds.MatchmakingEvents(( mode, )).gameModeSet())
 	else:
-		await ctx.send_response(embed = embed.matchMaking().invalidGameMode())
+		await ctx.send_response(embed = embeds.MatchmakingEvents().invalidGameMode())
 
 @matchmaking.command(name = "blacklist-set", description = "Gérer la blacklist")
 @discord.default_permissions(manage_events = True)
 async def manage_bl(ctx: discord.ApplicationContext, member: discord.Member, blacklisted: bool = True):
 	if member is None:
-		await ctx.send_response(embed = embed.matchMaking(( member.name, )).memberNotFound())
+		await ctx.send_response(embed = embeds.MatchmakingEvents(( member.name, )).memberNotFound())
 	else:
 		game = utils.Game(ctx.channel.id)
 		if blacklisted:
-			if member.id not in game.blacklist: game.blacklist.append(str(member.id))
+			if member.id not in game.blacklist: game.blacklist.append(member.id)
 		else:
-			if member.id in game.blacklist: game.blacklist.remove(str(member.id))
+			if member.id in game.blacklist: game.blacklist.remove(member.id)
 			
 		game.save()
-		await ctx.send_response(embed = embed.matchMaking(( member.name, blacklisted )).memberBlacklisted())
+		await ctx.send_response(embed = embeds.MatchmakingEvents(( member.id, blacklisted )).memberBlacklisted())
 	
-@matchmaking.command(name = "show-blacklist", description = "Montrer la blacklist")
+@matchmaking.command(name = "blacklist-show", description = "Montrer la blacklist")
 @discord.default_permissions(manage_events = True)
 async def show_bl(ctx: discord.ApplicationContext):
 	game: utils.Game = utils.Game(ctx.channel.id)
@@ -90,9 +97,9 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 		else:
-			await ctx.send_response(embed = embed.matchMaking().gameInTrainingMode())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
 		return
 
 	for team in teams:
@@ -113,14 +120,10 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 			description += f"""\n**{':first_place:' if slot == 0 else ':second_place:' if slot == 1 else ':third_place:' if slot == 2 else ':medal:'} | <@{member.id}> - {members[slot].pixels} pixel{'s' if members[slot].pixels > 1 else ''}**"""
 			slot += 1
 
-	await ctx.send_response(embed = discord.Embed(title = title, description = description, color = discord.Colour.from_rgb(50, 100, 255)))
+	await ctx.send_response(embed = discord.Embed(title = title, description = description, color = discord.Colour.from_rgb(0, 100, 255)))
 
 @team.command(name = "create", description = "Créer une équipe")
 async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None:
-	color: list | tuple = color.split(",")
-	color = [int(clr) for clr in color]
-	color = tuple(color)
-
 	game = utils.Game(ctx.channel.id)
 	teams = game.teams
 
@@ -128,36 +131,40 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 		else:
-			await ctx.send_response(embed = embed.matchMaking().gameInTrainingMode())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
+		return
+	
+	color: utils.Color = utils.Color(color)
+	
+	if not color.is_valid():
+		await ctx.send_response(embed = embeds.TeamEvents(( color, )).colorInvalid())
 		return
 
 	teamNames = [team.name for team in teams]
 	teamColors = [team.color for team in teams]
 
-	user = utils.User(ctx.author.id, 0, True)
+	user = utils.User(ctx.author.id, utils.Stats(), True)
 
 	for team in teams:
 		for member in team.members:
 			if member.id == user.id:
-				await ctx.send_response(embed = embed.teams(( team.name, )).alreadyInTeam())
+				await ctx.send_response(embed = embeds.TeamEvents(( team.name, )).alreadyInTeam())
 				return
-	
-	if len(color) != 3 or not utils.RGB(color[0], color[1], color[2]).is_valid():
-		await ctx.send_response(embed = embed.teams(( color, )).colorInvalid())
-	elif name in teamNames or color in teamColors:
+			
+	if name in teamNames or color in teamColors:
 		if color in teamColors:
-			await ctx.send_response(embed = embed.teams(( color, )).colorAlreadyTaken())
+			await ctx.send_response(embed = embeds.TeamEvents(( color, )).colorAlreadyTaken())
 		else:
-			await ctx.send_response(embed = embed.teams(( team.name, )).alreadyExisting())
+			await ctx.send_response(embed = embeds.TeamEvents(( team.name, )).alreadyExisting())
 	else:
 		newTeam: utils.Team = utils.Team(name, [ user ], 0, color, [ str(user.id) ])
 
 		teams.append(newTeam)
 		game.teams = teams
 		game.save()
-		await ctx.send_response(embed = embed.teams(( name, color )).teamCreated())
+		await ctx.send_response(embed = embeds.TeamEvents(( name, color )).teamCreated())
 
 @team.command(name = "leave", description = "Quitter ou supprimer une équipe")
 async def leave(ctx: discord.ApplicationContext):
@@ -170,13 +177,13 @@ async def leave(ctx: discord.ApplicationContext):
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 		else:
-			await ctx.send_response(embed = embed.matchMaking().gameInTrainingMode())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
 		return
 
 	if len(teams) == 0:
-		await ctx.send_response(embed = embed.matchMaking().noTeam())
+		await ctx.send_response(embed = embeds.MatchmakingEvents().noTeam())
 		return
 
 	for team in teams:
@@ -187,16 +194,16 @@ async def leave(ctx: discord.ApplicationContext):
 			if member.id == user.id:
 				if member.is_admin():
 					teams.remove(team)
-					await ctx.send_response(embed = embed.teams(( team.name, team.color )).teamDeleted())
+					await ctx.send_response(embed = embeds.TeamEvents(( team.name, team.color )).teamDeleted())
 				else:
 					team.members.remove(member)
-					await ctx.send_response(embed = embed.teams(( team.name, team.color )).teamLeft())
+					await ctx.send_response(embed = embeds.TeamEvents(( team.name, team.color )).teamLeft())
 
 				broke = True
 				break
 		if broke: break
 	else:
-		await ctx.send_response(embed.teams(( team.name, )).notInvited())
+		await ctx.send_response(embeds.TeamEvents(( team.name, )).notInvited())
 		return
 
 	game.teams = teams
@@ -211,13 +218,13 @@ async def invite(ctx: discord.ApplicationContext, member: discord.Member):
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 		else:
-			await ctx.send_response(embed = embed.matchMaking().gameInTrainingMode())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
 		return
 
 	if len(teams) == 0:
-		await ctx.send_response(embed = embed.matchMaking().noTeam())
+		await ctx.send_response(embed = embeds.MatchmakingEvents().noTeam())
 		return
 
 	user = utils.User(ctx.author.id, isAdmin = True)
@@ -236,7 +243,7 @@ async def invite(ctx: discord.ApplicationContext, member: discord.Member):
 				break
 		if broke: break
 	else:
-		await ctx.send_response(embed = embed.teams().notInAnyTeam())
+		await ctx.send_response(embed = embeds.TeamEvents().notInAnyTeam())
 		return
 
 	currentTeam.invite(member.id)
@@ -245,7 +252,11 @@ async def invite(ctx: discord.ApplicationContext, member: discord.Member):
 	game.teams = teams
 	game.save()
 
-	await ctx.send_response(embed = embed.teams(( team.name, member.name, team.color )).memberInvited())
+	await ctx.send_response(embed = embeds.TeamEvents(( team.name, member.name, currentTeam.color )).memberInvited())
+	if member.can_send():
+		await member.send(embed = embeds.TeamEvents(( team.name, "Vous", currentTeam.color )).memberInvited())
+	else:
+		await ctx.send(f"<@{member.id}>")
 
 @team.command(name = "join", description = "Rejoindre une équipe")
 async def join(ctx: discord.ApplicationContext, name: str):
@@ -256,13 +267,13 @@ async def join(ctx: discord.ApplicationContext, name: str):
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 		else:
-			await ctx.send_response(embed = embed.matchMaking().gameInTrainingMode())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
 		return
 
 	if len(teams) == 0:
-		await ctx.send_response(embed = embed.matchMaking().noTeam())
+		await ctx.send_response(embed = embeds.MatchmakingEvents().noTeam())
 		return
 
 	user = utils.User(ctx.author.id) 
@@ -277,14 +288,14 @@ async def join(ctx: discord.ApplicationContext, name: str):
 		
 		for member in team.members:
 			if member.id == user.id:
-				await ctx.send_response(embed = embed.teams(( team.name, )).alreadyInTeam())
+				await ctx.send_response(embed = embeds.TeamEvents(( team.name, )).alreadyInTeam())
 				return
 	else:
-		await ctx.send_response(embed = embed.teams(( name, )).notExisting())
+		await ctx.send_response(embed = embeds.TeamEvents(( name, )).notExisting())
 		return
 
 	if type(currentTeam.invites) != list or str(user.id) not in currentTeam.invites:
-		await ctx.send_response(embed = embed.teams(( currentTeam.name, )).notInvited())
+		await ctx.send_response(embed = embeds.TeamEvents(( currentTeam.name, )).notInvited())
 		return
 	
 	if currentTeam.members is None:
@@ -299,7 +310,7 @@ async def join(ctx: discord.ApplicationContext, name: str):
 	game.save()
 
 	if currentTeam.pixels is None: currentTeam.pixels = []
-	await ctx.send_response(embed = embed.teams(( currentTeam.name, currentTeam.color )).teamJoined())
+	await ctx.send_response(embed = embeds.TeamEvents(( currentTeam.name, currentTeam.color )).teamJoined())
 
 @pixel.command(name = "place", description = "Placer un pixel")
 async def place(ctx: discord.ApplicationContext, place: str, color: str | None = None):
@@ -310,7 +321,7 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embed.matchMaking().gameNotStarted())
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
 			return
 		else:
 			chanMembers = ctx.channel.members
@@ -324,60 +335,70 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 			
 			currentTeam.invites = []
 
-			teams.clear()
-			game.save()
-			teams.append(currentTeam)
-	
-	if color is None:
-		color = "0, 0"
-	
-	place: list[str] = place.split("-")
-	color: list[str] = [ clr.replace(" ", "") for clr in color.split(",") ]
-	color: list[int] = [ int(clr) for clr in color if clr.isnumeric() ]
-	
-	for team in teams:
-		member_found = False    
+			game.teams.clear()
+			game.add_team(currentTeam)
 
-		for member in team.members:
-			if member.id == ctx.author.id:
-				member.add_pixel()
-				member_index = team.members.index(member)
-				team.members[member_index] = member
+	result = game.search_user(ctx.author.id)
 
-				currentTeam = team
-				team_index = teams.index(team)
-
-				if len(color) != 3: color = team.color
-				
-				member_found = True
-				break
-		
-		if member_found:
-			break
-	else:
-		await ctx.send_response(embed = embed.teams().notInAnyTeam())
+	if result is None:
+		await ctx.send_response(embed = embeds.TeamEvents().notInAnyTeam())
 		return
 	
-	if type(color) != utils.RGB:
-		color: utils.RGB = utils.RGB(color[0], color[1], color[2])
+	user: utils.User = result["user"]
+	team: utils.Team = result["team"]
+
+	team_index = game.teams.index(team)
+
+	place: list[str] = place.split("-")
+	color: utils.Color = utils.Color(team.color.value if color is None else color)
+
+	user_index = team.members.index(user)
 
 	if not color.is_valid():
-		await ctx.send_response(embed = embed.game().invalidPixel())
-		await ctx.send(embed = embed.game().invalidColor())
+		await ctx.send(embed = embeds.GameEvents(( color, )).invalidColor())
 		return
 	
-	px = utils.Pixel(color, place)
+	px = utils.Pixel(color, place, ctx.author.id)
 	if not px.is_valid():
-		await ctx.send_response(embed = embed.game().invalidPixel())
+		await ctx.send_response(embed = embeds.GameEvents().invalidPixel())
 		return
+
+	if time.time() < user.timestamp:
+		await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
+		return
+
+	user.timestamp = round(time.time())
+
+	stolen_pixel = False
+	passed = False
+	oldPixel = game.search_pixel("-".join(place))
+	if oldPixel is not None:
+		if int(oldPixel.author) != ctx.author.id:
+			author: utils.User = game.search_user(oldPixel.author)["user"]
+			victimTeam: utils.Team = game.search_user(oldPixel.author)["team"]
+			if author is None: passed = True
+
+			if not passed:
+				author.stats.losses += 1
+				victimTeam.members[victimTeam.members.index(author)].stats.losses += 1
+				user.stats.attacks += 1
+				stolen_pixel = True
+
+	rate_limit = 0
+	for key in botinfos.rate_limit.keys():
+		if len(ctx.channel.members) >= int(key):
+			rate_limit = botinfos.rate_limit[key]
 	
-	currentTeam.add_pixel()
+	user.timestamp = round(time.time()) + rate_limit + 60 * stolen_pixel
+	user.add_pixel()
+
+	team.add_pixel()
+	team.members[user_index] = user
+	game.teams[team_index] = team
 	game.add_pixel(px)
-	game.teams[team_index] = currentTeam
 	game.save()
 
-	message = embed.game(( ctx.author.name, px.color, px.position, ctx.channel.id )).placedPixel()
-
-	if not testMode: await ctx.send_response(embed = message[0], file = message[1])
+	message = embeds.GameEvents(( ctx.author.name, px.color, px.position.split("-"), ctx.channel.id )).placedPixel()
+	await ctx.send_response(embed = message[0], file = message[1], ephemeral = True)
 
 bot.run(os.getenv("TOKEN"))
