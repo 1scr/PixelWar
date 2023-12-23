@@ -1,5 +1,7 @@
 from datetime import datetime
+from PIL import ImageColor
 import dotenv
+import math
 import os
 import random
 import time
@@ -9,18 +11,18 @@ import discord
 
 import botinfos
 import embeds
+import images
 import utils
 
 dotenv.load_dotenv()
 
 deta = Deta(os.getenv("DATAKEY"))
+users = deta.Base("users")
 
 bot = discord.Bot(description = botinfos.description)
 team = bot.create_group(name = "team", description = "Commandes liées aux équipes")
 pixel = bot.create_group(name = "map", description = "Commandes liées à la map")
 matchmaking = bot.create_group(name = "game", description = "Commandes liées à la partie")
-
-embed = embeds.Embed(bot)
 
 baseTeam = utils.Team()
 
@@ -111,13 +113,15 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 	if len(members) == 0:
 		description = "Aucun pixel n'a été placé."
 	else:
-		members.sort(key = lambda member : -member.pixels)
-		description = ":warning: Le nombre de pixels inclut également les pixels volés ou placés plusieurs fois, et la fiabilité du classement peut donc être compromise.\n"
+		members.sort(key = lambda member : -member.get_score())
+		description = ""
 		
 		slot = 0
 		while slot < maximum:
-			member = await bot.fetch_user(int(members[slot].id))
-			description += f"""\n**{':first_place:' if slot == 0 else ':second_place:' if slot == 1 else ':third_place:' if slot == 2 else ':medal:'} | <@{member.id}> - {members[slot].pixels} pixel{'s' if members[slot].pixels > 1 else ''}**"""
+			member: utils.User = game.search_user(int(members[slot].id))["user"]
+			score = member.get_score()
+			
+			description += f"""### <@{member.id}> | <:stats_militaryscore:1186447438819627079> {round(score + 10, 2)}\n<:stats_pixels:1186448335125631098> **{member.stats.pixels}**\t <:stats_attack:1186447402207559691> **{member.stats.attacks}**\t <:stats_losses:1186447424076664942> **{member.stats.losses}**\n"""
 			slot += 1
 
 	await ctx.send_response(embed = discord.Embed(title = title, description = description, color = discord.Colour.from_rgb(0, 100, 255)))
@@ -142,10 +146,16 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 		await ctx.send_response(embed = embeds.TeamEvents(( color, )).colorInvalid())
 		return
 
-	teamNames = [team.name for team in teams]
-	teamColors = [team.color for team in teams]
+	teamNames = [ team.name for team in teams ]
+	teamColors = [ team.color for team in teams ]
 
-	user = utils.User(ctx.author.id, utils.Stats(), True)
+	user = utils.User(ctx.author.id, utils.Stats(), True, 0)
+	user_stats = users.get(str(ctx.author.id))
+	if user_stats is None:
+		user_stats = user.to_dict()
+	
+	del user_stats["key"]
+	user.update_from_dict(user_stats)
 
 	for team in teams:
 		for member in team.members:
@@ -312,6 +322,38 @@ async def join(ctx: discord.ApplicationContext, name: str):
 	if currentTeam.pixels is None: currentTeam.pixels = []
 	await ctx.send_response(embed = embeds.TeamEvents(( currentTeam.name, currentTeam.color )).teamJoined())
 
+@team.command(name = "display", description = "Afficher son équipe")
+async def display(ctx: discord.ApplicationContext, name: str):
+	game = utils.Game(ctx.channel.id)
+	teams: list[utils.Team] = game.teams
+
+	if str(ctx.author.id) in game.blacklist: return
+
+	if game.status != 1:
+		if game.status == 0:
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
+		else:
+			await ctx.send_response(embed = embeds.MatchmakingEvents().gameInTrainingMode())
+		return
+
+	if len(teams) == 0:
+		await ctx.send_response(embed = embeds.MatchmakingEvents().noTeam())
+		return
+	
+	for team in teams:
+		if team.name == name:
+			pixels = sum(tuple([ member.stats.pixels for member in team.members ]))
+			attacks = sum(tuple([ member.stats.attacks for member in team.members ]))
+			losses = sum(tuple([ member.stats.losses for member in team.members ]))
+			score = round(10 + (3 * (math.floor(pixels) + 3.7 * math.floor(attacks)) / (math.floor(losses / 1.4) + 1) / (500 * (1 / math.floor(pixels + 1)))), 2)
+			
+			description = f"""### <:stats_militaryscore:1186447438819627079> **Score militaire** {round(score, 2)}\n> <:stats_pixels:1186448335125631098> **Nombre de pixels:** {team.pixels}\n> <:stats_attack:1186447402207559691> **Nombre d'attaques:** {attacks}\n> <:stats_losses:1186447424076664942> **Nombre de pertes:** {losses}\n"""
+			await ctx.send_response(embed = discord.Embed(title = name, description = description, color = discord.Colour.from_rgb(*ImageColor.getrgb(team.color.value))))
+			break
+	else:
+		await ctx.send_response(embed = embeds.MatchmakingEvents().noTeam())
+		return
+
 @pixel.command(name = "place", description = "Placer un pixel")
 async def place(ctx: discord.ApplicationContext, place: str, color: str | None = None):
 	game = utils.Game(ctx.channel.id)
@@ -364,24 +406,37 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 		return
 
 	if time.time() < user.timestamp:
-		await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
-		return
+		# await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
+		# return
+		pass
 
 	user.timestamp = round(time.time())
 
+	global passed
+	global vteam_index
+	global stolen_pixel
+
 	stolen_pixel = False
 	passed = False
-	oldPixel = game.search_pixel("-".join(place))
+	oldPixel = game.search_pixel((str(ord(place[0]) - 64), place[1]))
+	
+	vteam_index = 0
+	victimTeam: utils.Team = utils.Team()
+
 	if oldPixel is not None:
 		if int(oldPixel.author) != ctx.author.id:
-			author: utils.User = game.search_user(oldPixel.author)["user"]
-			victimTeam: utils.Team = game.search_user(oldPixel.author)["team"]
-			if author is None: passed = True
+			author: utils.User = utils.User(ctx.author.id)
+			author = game.search_user(oldPixel.author)["user"]
+			
+			if author is None:
+				passed = True
 
 			if not passed:
+				victimTeam = game.search_user(oldPixel.author)["team"]
+				vteam_index = game.teams.index(victimTeam)
 				author.stats.losses += 1
-				victimTeam.members[victimTeam.members.index(author)].stats.losses += 1
 				user.stats.attacks += 1
+				victimTeam.members[victimTeam.members.index(author)].stats.losses += 1
 				stolen_pixel = True
 
 	rate_limit = 0
@@ -395,10 +450,20 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 	team.add_pixel()
 	team.members[user_index] = user
 	game.teams[team_index] = team
+	if stolen_pixel:
+		game.teams[vteam_index] = victimTeam
 	game.add_pixel(px)
 	game.save()
 
 	message = embeds.GameEvents(( ctx.author.name, px.color, px.position.split("-"), ctx.channel.id )).placedPixel()
 	await ctx.send_response(embed = message[0], file = message[1], ephemeral = True)
+
+@pixel.command(name = "show", description = "Montrer la map")
+async def show(ctx: discord.ApplicationContext):
+	game = utils.Game(ctx.channel.id)
+
+	if str(ctx.author.id) in game.blacklist: return
+
+	await ctx.send_response(file = images.final(ctx.guild.id))
 
 bot.run(os.getenv("TOKEN"))

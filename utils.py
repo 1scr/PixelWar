@@ -1,6 +1,6 @@
 import discord
 import dotenv
-import logging
+import math
 import os
 
 from deta import Deta
@@ -9,6 +9,7 @@ dotenv.load_dotenv()
 
 deta = Deta(os.getenv("DATAKEY"))
 games = deta.Base("games")
+users = deta.Base("users")
 
 bot = discord.Bot()
 
@@ -88,10 +89,11 @@ class User:
 		self.stats = stats
 		self.isAdmin = isAdmin
 		self.timestamp = timestamp
-		user = bot.get_user(id)
 
-		self.username = user.name if type(user) in [discord.User, discord.Member] else "Unknown user"
-
+		user = users.get(str(id))
+		if user is None:
+			users.put(key = str(id), data = self.to_dict())
+		
 		self.update_from_dict(self.to_dict())
 	   
 	def add_pixel(self, count: int = 1) -> None:
@@ -102,13 +104,18 @@ class User:
 	
 	def is_admin(self) -> bool:
 		return self.isAdmin
+	
+	def get_score(self) -> float:
+		pixels = self.stats.pixels
+		attacks = self.stats.attacks
+		losses = self.stats.losses
+		return 3 * (math.floor(pixels) + 3.7 * math.floor(attacks)) / (math.floor(losses / 1.4) + 1) / (500 * (1 / math.floor(pixels + 1)))
 
 	def to_dict(self) -> dict[str | int]:
-		return {"id": str(self.id), "username": self.username, "isAdmin": self.isAdmin, "stats": self.stats.to_dict(), "timestamp": str(self.timestamp)}
+		return {"id": str(self.id), "isAdmin": self.isAdmin, "stats": self.stats.to_dict(), "timestamp": str(self.timestamp)}
 	
 	def update_from_dict(self, data: dict) -> None:
 		if "id" in data.keys(): self.id = int(data["id"])
-		if "username" in data.keys(): self.username = data["username"]
 		if "stats" in data.keys(): self.stats = data["stats"]
 		if "isAdmin" in data.keys(): self.isAdmin = data["isAdmin"]
 		if "timestamp" in data.keys(): self.timestamp = int(data["timestamp"])
@@ -170,6 +177,7 @@ class Team:
 		if "color" in data.keys(): self.color = Color(data["color"])
 		if "invites" in data.keys(): self.invites = data["invites"] if data["invites"] is not None else []
 
+		if self.members is None: self.members = []
 
 		classified_members = []
 		for user in self.members:
@@ -177,8 +185,12 @@ class Team:
 				currentUser = User(user["id"])
 				currentUser.update_from_dict(user)
 
+				users.put(key = str(currentUser.id), data = currentUser.to_dict())
+
 				classified_members.append(currentUser)
 			elif type(user) == User:
+				users.put(key = str(user.id), data = user.to_dict())
+				
 				classified_members.append(user)
 		
 		int_invites = []
@@ -237,7 +249,7 @@ class Game:
 		self.update_from_dict(self.to_dict())
 
 		for pixel in self.pixels:
-			if tuple(pixel.position) == place: return pixel
+			if tuple(pixel.position.split("-")) == place: return pixel
 		
 		return None
 	
@@ -247,7 +259,7 @@ class Game:
 				if id == member.id: return { "user": member, "team": team }
 		
 		return None
-	
+
 	def to_dict(self) -> dict[str | list]:
 		team_dicts = []
 		pixel_dicts = []
