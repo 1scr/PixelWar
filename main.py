@@ -128,10 +128,11 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 
 @matchmaking.command(name = "generate-gif")
 async def generate_gif(ctx: discord.ApplicationContext):
+	await ctx.send_response("Veuillez patienter...", ephemeral = True)
 	game = utils.Game(ctx.channel.id)
 	game.generate_gif()
 	message = embeds.GameEvents().gif()
-	await ctx.send_response(embed = message[0], file = message[1])
+	await ctx.send_followup(embed = message[0], file = message[1])
 
 @team.command(name = "create", description = "Créer une équipe")
 async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None:

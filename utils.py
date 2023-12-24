@@ -1,8 +1,12 @@
 import discord
 import dotenv
-import imageio
+import glob
+import io
 import math
 import os
+import shutil
+
+from PIL import Image
 
 from deta import Deta
 
@@ -265,15 +269,21 @@ class Game:
 		return None
 	
 	def generate_gif(self):
-		with imageio.get_writer('lastgif.gif', mode='I') as writer:
-			for image in saves.list(prefix = str(self.id))["names"]:
-				_image = saves.get(image).read()
+		os.mkdir("gif_preview")
 
-				if _image is not None:
-					writer.append_data(_image)
-			
-		return open('lastgif.gif')
+		i = 0
+		for image in saves.list(prefix = str(self.id))["names"]:
+			image_bytes = saves.get(image).read()
+			_image = Image.open(io.BytesIO(image_bytes))
+			_image.save(f"gif_preview/image_{i}.png")
+			i += 1
 	
+		frames = [ Image.open(image) for image in glob.glob(f"gif_preview/*.PNG") ]
+		frame_one = frames[0]
+		frame_one.save("lastgif.gif", format = "GIF", append_images = frames, save_all = True, duration = 100, loop = 0)
+
+		shutil.rmtree("gif_preview")
+
 	def save_image(self, image: bytes):
 		saves.put(data = image, name = f"{self.id}_{self.saves + 1}")
 		self.saves += 1
