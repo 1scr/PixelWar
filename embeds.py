@@ -82,7 +82,7 @@ class TeamEvents:
     def teamJoined(self) -> discord.Embed:
         clr = ImageColor.getcolor(self.infos[1].value, "RGB")
         title = "<:add_member:1186272821870084187> Vous avez rejoint l'équipe !"
-        description = f"Tu viens de rejoindre l'équipe  **{self.infos[0]}** !\n:bulb: **__Quitter l'équipe:__ </team leave:1165023654296436837>**"
+        description = f"Tu viens de rejoindre l'équipe **{self.infos[0]}** !\n:bulb: **__Quitter l'équipe:__ </team leave:1165023654296436837>**"
         color = discord.Colour.from_rgb(*clr)
 
         return discord.Embed(title = title, description = description, color = color)
@@ -90,7 +90,7 @@ class TeamEvents:
     def teamLeft(self) -> discord.Embed:
         clr = ImageColor.getcolor(self.infos[1].value, "RGB")
         title = "<:member_error:1186272893286486087> Vous avez quitté l'équipe !"
-        description = f"Tu viens de quitter l'équipe  **{self.infos[0]}** !\n:bulb: **__Rejoindre une autre équipe:__ </team join:1165023654296436837>**"
+        description = f"Tu viens de quitter l'équipe **{self.infos[0]}** !\n:bulb: **__Rejoindre une autre équipe:__ </team join:1165023654296436837>**"
         color = discord.Colour.from_rgb(*clr)
 
         return discord.Embed(title = title, description = description, color = color)
@@ -98,7 +98,7 @@ class TeamEvents:
     def teamDeleted(self) -> discord.Embed:
         clr = ImageColor.getcolor(self.infos[1].value, "RGB")
         title = "<:success:1186379716798730270> Équipe supprimée"
-        description = f"Tu viens de supprimer l'équipe  **{self.infos[0]}** !\n:bulb: **Astuce:** Tous les membres de cette équipe peuvent rejoindre une autre équipe."
+        description = f"Tu viens de supprimer l'équipe **{self.infos[0]}** !\n:bulb: **Astuce:** Tous les membres de cette équipe peuvent rejoindre une autre équipe."
         color = discord.Colour.from_rgb(*clr)
 
         return discord.Embed(title = title, description = description, color = color)
@@ -106,7 +106,7 @@ class TeamEvents:
     def memberInvited(self) -> discord.Embed:
         clr = ImageColor.getcolor(self.infos[2].value, "RGB")
         title = "<:add_member:1186272821870084187> Nouvelle invitation"
-        description = f"{self.infos[1]} peut désormais rejoindre l'équipe  **{self.infos[0]}**"
+        description = f"{self.infos[1]} peut désormais rejoindre l'équipe **{self.infos[0]}**"
         color = discord.Colour.from_rgb(*clr)
 
         return discord.Embed(title = title, description = description, color = color)
@@ -204,5 +204,17 @@ class GameEvents:
 
         embed = discord.Embed(title = title, description = description, color = color)
         embed.set_image(url = "attachment://map.png")
+
+        return (embed, map_attc)
+    
+    def gif(self) -> discord.Embed:
+        title = "<:success:1186379716798730270> Voici votre gif tant convoîté"
+        description = f"""Partagez la partie avec vos amis !\n_Merci d'utiliser cette commande avec modération._""" # Phrase à garder ou non selon les performances et l'utilisation de votre machine
+        color = discord.Colour.from_rgb(*ImageColor.getcolor(success, "RGB"))
+
+        map_attc = discord.File(open(f"lastgif.gif", "rb"), filename = "gif.gif")
+
+        embed = discord.Embed(title = title, description = description, color = color)
+        embed.set_image(url = "attachment://gif.gif")
 
         return (embed, map_attc)

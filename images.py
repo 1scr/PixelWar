@@ -6,6 +6,8 @@ dotenv.load_dotenv()
 from deta import Deta
 from PIL import Image, ImageDraw, ImageColor
 
+import utils
+
 deta = Deta(os.getenv("DATAKEY"))
 games = deta.Base("games")
 
@@ -45,3 +47,5 @@ def final(serv: int):
         placePixels()
     else:
         placePixels(current)
+
+    utils.Game(serv).save_image(open("lastmap.png", "rb").read())

@@ -1,5 +1,6 @@
 import discord
 import dotenv
+import imageio
 import math
 import os
 
@@ -10,6 +11,7 @@ dotenv.load_dotenv()
 deta = Deta(os.getenv("DATAKEY"))
 games = deta.Base("games")
 users = deta.Base("users")
+saves = deta.Drive("saves")
 
 bot = discord.Bot()
 
@@ -211,6 +213,7 @@ class Game:
 		self.teams: list[Team] = []
 		self.status = 0
 		self.blacklist = []
+		self.saves = 0
 
 		# 0 = Paused
 		# 1 = Competition
@@ -224,6 +227,7 @@ class Game:
 			self.pixels = game["pixels"]
 			self.status = game["gameStatus"]
 			self.blacklist = game["blacklist"]
+			self.saves = game["saves"]
 
 		self.update_from_dict(self.to_dict())
 	
@@ -247,7 +251,7 @@ class Game:
 	
 	def search_pixel(self, place: tuple) -> Pixel | None:
 		self.update_from_dict(self.to_dict())
-
+		
 		for pixel in self.pixels:
 			if tuple(pixel.position.split("-")) == place: return pixel
 		
@@ -259,6 +263,22 @@ class Game:
 				if id == member.id: return { "user": member, "team": team }
 		
 		return None
+	
+	def generate_gif(self):
+		with imageio.get_writer('lastgif.gif', mode='I') as writer:
+			for image in saves.list(prefix = str(self.id))["names"]:
+				_image = saves.get(image).read()
+
+				if _image is not None:
+					writer.append_data(_image)
+			
+		return open('lastgif.gif')
+	
+	def save_image(self, image: bytes):
+		saves.put(data = image, name = f"{self.id}_{self.saves + 1}")
+		self.saves += 1
+
+		self.save()
 
 	def to_dict(self) -> dict[str | list]:
 		team_dicts = []
@@ -282,13 +302,14 @@ class Game:
 		for user in self.blacklist:
 			str_bl.append(str(user))
 
-		return {"id": str(self.id), "pixels": pixel_dicts, "teams": team_dicts, "gameStatus": self.status, "blacklist": str_bl}
+		return {"id": str(self.id), "pixels": pixel_dicts, "teams": team_dicts, "gameStatus": self.status, "blacklist": str_bl, "saves": self.saves}
 	
 	def update_from_dict(self, data: dict):
 		if "pixels" in data.keys(): self.pixels = data["pixels"]
 		if "teams" in data.keys(): self.teams = data["teams"]
 		if "gameStatus" in data.keys(): self.status = data["gameStatus"]
 		if "blacklist" in data.keys(): self.blacklist = data["blacklist"]
+		if "saves" in data.keys(): self.saves = data["saves"]
 
 		classified_pixels = []
 		for pixel in self.pixels:
