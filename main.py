@@ -22,7 +22,8 @@ users = deta.Base("users")
 bot = discord.Bot(description = botinfos.description)
 team = bot.create_group(name = "team", description = "Commandes liées aux équipes")
 pixel = bot.create_group(name = "map", description = "Commandes liées à la map")
-matchmaking = bot.create_group(name = "game", description = "Commandes liées à la partie")
+matchmaking = bot.create_group(name = "manage", description = "Commandes de modération")
+competition = bot.create_group(name = "game", description = "Commandes liées à la partie")
 
 baseTeam = utils.Team()
 
@@ -90,7 +91,7 @@ async def show_bl(ctx: discord.ApplicationContext):
 	
 	await ctx.send_response(embed = bl_embed)
 
-@matchmaking.command(name = "leaderboard")
+@competition.command(name = "leaderboard")
 async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 	game: utils.Game = utils.Game(ctx.channel.id)
 
@@ -126,7 +127,7 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 
 	await ctx.send_response(embed = discord.Embed(title = title, description = description, color = discord.Colour.from_rgb(0, 100, 255)))
 
-@matchmaking.command(name = "generate-gif")
+@competition.command(name = "generate-gif")
 async def generate_gif(ctx: discord.ApplicationContext):
 	await ctx.send_response("Veuillez patienter...", ephemeral = True)
 	game = utils.Game(ctx.channel.id)
