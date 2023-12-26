@@ -73,8 +73,7 @@ async def show_bl(ctx: discord.ApplicationContext):
 	blacklist: list[str] = game.blacklist
 
 	if len(blacklist) == 0:
-		description = """```\nIl n'y a pas de membre blacklisté actuellement.\n```
-		"""
+		description = """```\nIl n'y a pas de membre blacklisté actuellement.\n```"""
 	else:
 		description = f"""```\nIl y a {len(blacklist)} membre{'s' if len(blacklist) > 1 else ''} blacklisté{'s' if len(blacklist) > 1 else ''}:\n"""
 
@@ -164,6 +163,7 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 	
 	del user_stats["key"]
 	user.update_from_dict(user_stats)
+	user.change_status(True)
 
 	for team in teams:
 		for member in team.members:
@@ -177,7 +177,7 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 		else:
 			await ctx.send_response(embed = embeds.TeamEvents(( team.name, )).alreadyExisting())
 	else:
-		newTeam: utils.Team = utils.Team(name, [ user ], 0, color, [ str(user.id) ])
+		newTeam: utils.Team = utils.Team(name, [ user ], 0, color, [ user.id ])
 
 		teams.append(newTeam)
 		game.teams = teams
