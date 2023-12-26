@@ -126,9 +126,10 @@ class User:
 		if "isAdmin" in data.keys(): self.isAdmin = data["isAdmin"]
 		if "timestamp" in data.keys(): self.timestamp = int(data["timestamp"])
 
-		new_stats = Stats()
-		new_stats.update_from_dict(self.stats)
-		self.stats = new_stats
+		if type(self.stats) == dict:
+			new_stats = Stats()
+			new_stats.update_from_dict(self.stats)
+			self.stats = new_stats
 
 class Team:
 	def __init__(self, name: str = "New Team", members: list[User] = [], pixels: int = 0, color: Color = Color(), invites: list = []):
