@@ -473,6 +473,12 @@ async def show(ctx: discord.ApplicationContext):
 
 	if str(ctx.author.id) in game.blacklist: return
 
-	await ctx.send_response(file = images.final(ctx.guild.id))
+	images.final(ctx.channel.id)
+	map_attc = discord.File(open(f"lastmap.png", "rb"), filename = "map.png")
+	color = discord.Colour.from_rgb(*ImageColor.getrgb(botinfos.colorScheme["success"]))
+
+	embed = discord.Embed(title = ctx.guild.name, description = "Voici la map actuelle", color = color)
+	embed.set_image(url = "attachment://map.png")
+	await ctx.send_response(embed = embed, file = map_attc)
 
 bot.run(os.getenv("TOKEN"))
