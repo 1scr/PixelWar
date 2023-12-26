@@ -1,9 +1,8 @@
 import discord
-import images
-import utils
+import bot.images as images
 
 from PIL import ImageColor
-from botinfos import colorScheme
+from bot.infos import colorScheme
 
 error = colorScheme["error"]
 success = colorScheme["success"]
@@ -173,7 +172,7 @@ class GameEvents:
     # Error
     def invalidColor(self) -> discord.Embed:
         title = "<:error:1186272869047603331> Impossible de placer le pixel"
-        description = "La couleur doit être sous le format RGB (sans les parenthèses).\n:bulb: **__Le format RGB:__ `(ROUGE, VERT, BLEU)` avec chaque nombre compris entre 0 et 255 inclus.**"
+        description = "La couleur doit être sous le format hexadécimal, sans oublier le # en préfixe.\n:bulb: **__Le format hexadécimal:__ `#XXXXXX` avec chaque X compris entre 0 et 9 inclus ou entre a et f inclus.**"
         color = discord.Colour.from_rgb(*ImageColor.getcolor(error, "RGB"))
 
         return discord.Embed(title = title, description = description, color = color)

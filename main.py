@@ -3,16 +3,15 @@ from PIL import ImageColor
 import dotenv
 import math
 import os
-import random
 import time
 
 from deta import Deta
 import discord
 
-import botinfos
-import embeds
-import images
-import utils
+import bot.infos as botinfos
+import bot.embeds as embeds
+import bot.images as images
+import bot.utils as utils
 
 dotenv.load_dotenv()
 

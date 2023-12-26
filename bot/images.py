@@ -6,7 +6,7 @@ dotenv.load_dotenv()
 from deta import Deta
 from PIL import Image, ImageDraw, ImageColor
 
-import utils
+import bot.utils as utils
 
 deta = Deta(os.getenv("DATAKEY"))
 games = deta.Base("games")
