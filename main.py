@@ -350,12 +350,28 @@ async def display(ctx: discord.ApplicationContext, name: str):
 	
 	for team in teams:
 		if team.name == name:
+			description = f"### Membres ({len(team.members)})"
+			if len(team.members) > 5:
+				max = 5
+				footer = f">\n> Et {len(team.members) - 5} autres."
+			else:
+				max = len(team.members)
+				footer = ""
+			
+			sorted_members = sorted(team.members, key = lambda member : -member.get_score())
+
+			for m in range(max):
+				member = sorted_members[m]
+				description += f"\n> <@{member.id}> (**{member.get_score()}**)"
+
+			description += "\n" + footer + "\n"
+
 			pixels = sum(tuple([ member.stats.pixels for member in team.members ]))
 			attacks = sum(tuple([ member.stats.attacks for member in team.members ]))
 			losses = sum(tuple([ member.stats.losses for member in team.members ]))
 			score = round(10 + (3 * (math.floor(pixels) + 3.7 * math.floor(attacks)) / (math.floor(losses / 1.4) + 1) / (500 * (1 / math.floor(pixels + 1)))), 2)
 			
-			description = f"""### <:stats_militaryscore:1186447438819627079> **Score militaire** {round(score, 2)}\n> <:stats_pixels:1186448335125631098> **Nombre de pixels:** {team.pixels}\n> <:stats_attack:1186447402207559691> **Nombre d'attaques:** {attacks}\n> <:stats_losses:1186447424076664942> **Nombre de pertes:** {losses}\n"""
+			description += f"""### <:stats_militaryscore:1186447438819627079> **Score militaire:** {round(score, 2)}\n> <:stats_pixels:1186448335125631098> **Nombre de pixels:** {team.pixels}\n> <:stats_attack:1186447402207559691> **Nombre d'attaques:** {attacks}\n> <:stats_losses:1186447424076664942> **Nombre de pertes:** {losses}\n"""
 			await ctx.send_response(embed = discord.Embed(title = name, description = description, color = discord.Colour.from_rgb(*ImageColor.getrgb(team.color.value))))
 			break
 	else:
@@ -365,7 +381,6 @@ async def display(ctx: discord.ApplicationContext, name: str):
 @pixel.command(name = "place", description = "Placer un pixel")
 async def place(ctx: discord.ApplicationContext, place: str, color: str | None = None):
 	game = utils.Game(ctx.channel.id)
-	teams: list[utils.Team] = game.teams
 
 	if str(ctx.author.id) in game.blacklist: return
 
