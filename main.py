@@ -414,9 +414,8 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 		return
 
 	if time.time() < user.timestamp:
-		# await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
-		# return
-		pass
+		await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
+		return
 
 	user.timestamp = round(time.time())
 
