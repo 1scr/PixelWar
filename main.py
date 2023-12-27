@@ -127,7 +127,7 @@ async def leaderboard(ctx: discord.ApplicationContext, maximum: int | None = 5):
 
 @competition.command(name = "generate-gif")
 async def generate_gif(ctx: discord.ApplicationContext):
-	await ctx.send_response("Veuillez patienter...", ephemeral = True)
+	await ctx.defer()
 	game = utils.Game(ctx.channel.id)
 	game.generate_gif()
 	message = embeds.GameEvents().gif()
@@ -482,6 +482,7 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 
 @pixel.command(name = "show", description = "Montrer la map")
 async def show(ctx: discord.ApplicationContext):
+	await ctx.defer()
 	game = utils.Game(ctx.channel.id)
 
 	if str(ctx.author.id) in game.blacklist: return
@@ -492,6 +493,6 @@ async def show(ctx: discord.ApplicationContext):
 
 	embed = discord.Embed(title = ctx.guild.name, description = "Voici la map actuelle", color = color)
 	embed.set_image(url = "attachment://map.png")
-	await ctx.send_response(embed = embed, file = map_attc)
+	await ctx.send_followup(embed = embed, file = map_attc)
 
 bot.run(os.getenv("TOKEN"))
