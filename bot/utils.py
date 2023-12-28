@@ -25,7 +25,7 @@ class Color:
 	
 	def is_valid(self) -> bool:
 		for char in range(len(self.value)):
-			if (char == 0 and self.value[char] != "#") or (char != 0 and self.value[char] not in "0123456789abcdef") or len(self.value) != 7:
+			if (char == 0 and self.value[char] != "#") or (char != 0 and self.value[char] not in "0123456789abcdefABCDEF") or len(self.value) != 7:
 				return False
 		
 		return True
@@ -95,10 +95,6 @@ class User:
 		self.stats = stats
 		self.isAdmin = isAdmin
 		self.timestamp = timestamp
-
-		user = users.get(str(id))
-		if user is None:
-			users.put(key = str(id), data = self.to_dict())
 		
 		self.update_from_dict(self.to_dict())
 	   
@@ -352,4 +348,16 @@ class Game:
 		self.blacklist = int_blacklist
 		
 	def save(self) -> None:
+		new_users: list[User] = []
+		for team in self.teams:
+			for member in team.members:
+				new_users.append(member)
+		
+		old_users: list = users.get(str(self.id))["data"]
+		for user in new_users:
+			for _user in old_users:
+				if _user["id"] == user.id:
+					old_users[old_users.index(_user)] == user.to_dict()
+		
+		users.update(key = str(self.id), updates = { "data" : old_users })
 		games.update(key = str(self.id), updates = self.to_dict())

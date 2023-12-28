@@ -157,11 +157,12 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 	teamColors = [ team.color for team in teams ]
 
 	user = utils.User(ctx.author.id, utils.Stats(), True, 0)
-	user_stats = users.get(str(ctx.author.id))
+	user_stats = [ _user for _user in users.get(str(ctx.channel.id))["data"] if _user["id"] == user.id ][0]
 	if user_stats is None:
 		user_stats = user.to_dict()
 	
 	del user_stats["key"]
+	del user_stats["timestamp"]
 	user.update_from_dict(user_stats)
 	user.change_status(True)
 
