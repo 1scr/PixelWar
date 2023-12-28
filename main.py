@@ -362,7 +362,7 @@ async def display(ctx: discord.ApplicationContext, name: str):
 
 			for m in range(max):
 				member = sorted_members[m]
-				description += f"\n> <@{member.id}> (**{member.get_score()}**)"
+				description += f"\n> <@{member.id}> (**{round(10 + member.get_score(), 2)}**)"
 
 			description += "\n" + footer + "\n"
 
