@@ -188,12 +188,8 @@ class Team:
 				currentUser = User(user["id"])
 				currentUser.update_from_dict(user)
 
-				users.put(key = str(currentUser.id), data = currentUser.to_dict())
-
 				classified_members.append(currentUser)
-			elif type(user) == User:
-				users.put(key = str(user.id), data = user.to_dict())
-				
+			elif type(user) == User:				
 				classified_members.append(user)
 		
 		int_invites = []
@@ -220,6 +216,10 @@ class Game:
 		# 1 = Competition
 		# 2 = Training
 
+		old_users = users.get(str(id))
+		if old_users is None:
+			users.put(key = str(id), data = [])
+		
 		game = games.get(str(id))
 		if game is None:
 			games.put(key = str(id), data = self.to_dict())
@@ -353,11 +353,12 @@ class Game:
 			for member in team.members:
 				new_users.append(member)
 		
-		old_users: list = users.get(str(self.id))["data"]
+		item = users.get(str(self.id))
+		old_users = [] if item is None else item["value"]
 		for user in new_users:
 			for _user in old_users:
 				if _user["id"] == user.id:
 					old_users[old_users.index(_user)] == user.to_dict()
 		
-		users.update(key = str(self.id), updates = { "data" : old_users })
+		users.update(key = str(self.id), updates = { "value" : old_users })
 		games.update(key = str(self.id), updates = self.to_dict())
