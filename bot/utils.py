@@ -356,9 +356,14 @@ class Game:
 		item = users.get(str(self.id))
 		old_users = [] if item is None else item["value"]
 		for user in new_users:
-			for _user in old_users:
-				if _user["id"] == user.id:
-					old_users[old_users.index(_user)] == user.to_dict()
+			old_users.append(user.to_dict())
+		
+		registered = []
+		for user in reversed(old_users):
+			if user["id"] in registered:
+				old_users.remove(user)
+			else:
+				registered.append(user["id"])
 		
 		users.update(key = str(self.id), updates = { "value" : old_users })
 		games.update(key = str(self.id), updates = self.to_dict())
