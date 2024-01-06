@@ -157,7 +157,7 @@ async def create(ctx: discord.ApplicationContext, name: str, color: str) -> None
 	teamColors = [ team.color for team in teams ]
 
 	user = utils.User(ctx.author.id, utils.Stats(), True, 0)
-	user_stats = [ _user for _user in users.get(str(ctx.channel.id))["value"] if _user["id"] == user.id ]
+	user_stats = [ _user for _user in users.get(str(ctx.channel.id))["value"] if _user["id"] == str(user.id) ]
 	if len(user_stats) == 0:
 		user_stats = user.to_dict()
 	else:
@@ -470,6 +470,7 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 	
 	user.timestamp = round(time.time()) + rate_limit + 60 * stolen_pixel
 	user.add_pixel()
+
 
 	team.add_pixel()
 	team.members[user_index] = user
