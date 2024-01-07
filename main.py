@@ -382,13 +382,14 @@ async def display(ctx: discord.ApplicationContext, name: str):
 
 @pixel.command(name = "place", description = "Placer un pixel")
 async def place(ctx: discord.ApplicationContext, place: str, color: str | None = None):
+	await ctx.defer()
 	game = utils.Game(ctx.channel.id)
 
 	if str(ctx.author.id) in game.blacklist: return
 
 	if game.status != 1:
 		if game.status == 0:
-			await ctx.send_response(embed = embeds.MatchmakingEvents().gameNotStarted())
+			await ctx.send_followup(embed = embeds.MatchmakingEvents().gameNotStarted())
 			return
 		else:
 			chanMembers = ctx.channel.members
@@ -408,7 +409,7 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 	result = game.search_user(ctx.author.id)
 
 	if result is None:
-		await ctx.send_response(embed = embeds.TeamEvents().notInAnyTeam())
+		await ctx.send_followup(embed = embeds.TeamEvents().notInAnyTeam())
 		return
 	
 	user: utils.User = result["user"]
@@ -427,11 +428,11 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 	
 	px = utils.Pixel(color, place, ctx.author.id)
 	if not px.is_valid():
-		await ctx.send_response(embed = embeds.GameEvents().invalidPixel())
+		await ctx.send_followup(embed = embeds.GameEvents().invalidPixel())
 		return
 
 	if time.time() < user.timestamp:
-		await ctx.send_response(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
+		await ctx.send_followup(embed = embeds.GameEvents(( user.timestamp, )).rateLimit())
 		return
 
 	user.timestamp = round(time.time())
@@ -481,7 +482,7 @@ async def place(ctx: discord.ApplicationContext, place: str, color: str | None =
 	game.save()
 
 	message = embeds.GameEvents(( ctx.author.name, px.color, px.position.split("-"), ctx.channel.id )).placedPixel()
-	await ctx.send_response(embed = message[0], file = message[1], ephemeral = True)
+	await ctx.send_followup(embed = message[0], file = message[1], ephemeral = True)
 
 @pixel.command(name = "show", description = "Montrer la map")
 async def show(ctx: discord.ApplicationContext):
