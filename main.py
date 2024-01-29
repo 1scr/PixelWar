@@ -26,10 +26,13 @@ competition = bot.create_group(name = "game", description = "Commandes liées à
 
 baseTeam = utils.Team()
 
+global testMode
+testMode = False
+
 @bot.event
 async def on_ready():
-	print("Ready !")
-	print("Connected as", bot.user)
+	print("Démarré avec succès.")
+	print(bot.user)
 
 @bot.on_error
 async def on_error(event):

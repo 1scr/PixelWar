@@ -56,6 +56,7 @@ def check_release() -> str | None:
         return None
 
 while True:
+    print("------------------------------------")
     print("Recherche de mises à jour...")
     new_release = check_release()
     if new_release is not None and new_release != os.getenv('BOT_VERSION'):
@@ -64,7 +65,8 @@ while True:
 
         os.environ['BOT_VERSION'] = new_release
 
-        print("Redémarage en cours...")
+        print("\n", "Redémarage en cours...", "\n", sep = '')
+
         subprocess.Popen(["venv/Scripts/python", "main.py"])
     else:
         print("L'application est à jour.")
