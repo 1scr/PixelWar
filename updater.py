@@ -7,6 +7,7 @@
 import dotenv
 import os
 import requests
+import subprocess
 import time
 
 dotenv.load_dotenv()
@@ -20,41 +21,52 @@ file_paths = [
     "bot/infos.py"
 ]
 
-def update_bot():
+def update_bot(version: str):
     for file_path in file_paths:
-        print(f"Mise à jour de {file_path} depuis {repo_url}/master/{file_path} ...")
-        github_url = f"{repo_url}/main/{file_path}"
+        print(f"Mise à jour de {file_path} depuis {repo_url}/{version}/{file_path} ...")
+        github_url = f"{repo_url}/{version}/{file_path}"
 
         response = requests.get(github_url, headers = { 'authorization': os.getenv('GITHUB_PAT') })
         
         if response.status_code == 200:
+            content = response.text
             if os.path.basename(file_path) == "main.py":
                 content = content.replace('TOKEN', 'TOKEN_DEV')
-                content = content.replace('autoUpdate = True', 'autoUpdate = False')
 
             with open(file_path, "w", encoding="utf-8") as local_file:
                 if os.path.basename(file_path) == "main.py":
                     local_file.write('')
                     time.sleep(3)
                 
-                local_file.write(response.text)
+                local_file.write(content)
                 print(f"- {file_path} mis à jour avec succès !")
         else:
             print(f"- Erreur {response.status_code} - Impossible de mettre à jour {file_path}")
 
-def check_release() -> tuple:
-    global old_tag
-
+def check_release() -> str | None:
     response = requests.get(f"https://api.github.com/repos/okayhappex/PixelWar/releases", headers = { 'method': 'GET', 'authorization': os.getenv('GITHUB_PAT') })
 
     if response.status_code == 200:
         releases = response.json()
         release = releases[0]
 
-        if release['tag_name'] != old_tag:
-            return True, release['tag_name']
-        else:
-            return False,
+        return release['tag_name']
     else:
         print(f"Erreur {response.status_code} - Impossible de vérifier la release")
         return None
+
+while True:
+    print("Recherche de mises à jour...")
+    new_release = check_release()
+    if new_release is not None and new_release != os.getenv('BOT_VERSION'):
+        print(f"Nouvelle mise à jour détectée: {new_release}")
+        update_bot(new_release)
+
+        os.environ['BOT_VERSION'] = new_release
+
+        print("Redémarage en cours...")
+        subprocess.Popen(["venv/Scripts/python", "main.py"])
+    else:
+        print("L'application est à jour.")
+
+    time.sleep(300)
